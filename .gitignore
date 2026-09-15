@@ -1,0 +1,13 @@
+.idea/
+.vscode/
+*.iml
+
+target/
+build/
+.gradle/
+
+/uploads/
+/media/
+
+.DS_Store
+Thumbs.db
