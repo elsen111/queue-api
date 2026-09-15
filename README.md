@@ -1,6 +1,6 @@
 # 🚦 Smart Queue API
 
-A **queue management REST API** for a small service center — customers join a queue, staff call the next customer, and everyone can check their live position.
+A **queue management REST API** for a small service center. Customers can join the queue and check their position, while authorized staff can call, complete, cancel, and manage customers.
 
 Built as part of the **NV ProjectLab Backend Interview Task**.
 
@@ -12,38 +12,56 @@ Built as part of the **NV ProjectLab Backend Interview Task**.
 * 🍃 **Spring Boot 3.3**
 * 🗄️ **Spring Data JPA + PostgreSQL**
 * 🧬 **Liquibase** — database schema migrations
-* 🔐 **Spring Security + JWT** — admin authentication
+* 🔐 **Spring Security + JWT** — admin authentication and authorization
 * 🔄 **MapStruct** — entity ↔ DTO mapping
 * 📖 **springdoc-openapi / Swagger UI**
-* 🚦 **Bucket4j** — API rate limiting
+* 🚦 **Bucket4j** — IP-based rate limiting
 * 🧩 **Lombok**
-* 🧪 **JUnit 5 + Mockito + MockMvc**
 * 🐳 **Docker / Docker Compose**
 
 ---
 
-## 🗄️ Database
+## ✨ Features
 
-The application uses **PostgreSQL**, with the database schema managed entirely by **Liquibase**.
+* ➕ Customers can join the queue
+* 📋 View all waiting customers in queue order
+* 📍 Check a customer's current position
+* 📣 Admins can call the next customer
+* ✅ Admins can complete a customer's service
+* ❌ Admins can cancel a customer
+* 🗑️ Admins can remove a customer
+* 📊 Admin queue statistics
+* 🕘 Paginated queue history
+* 🔐 JWT-based admin authentication
+* 🚦 IP-based API rate limiting
+* 🧬 Liquibase database migrations
+* 🔒 Concurrency protection for simultaneous `/next` requests
+* 🐳 Dockerized application and database
 
-Changelogs are located at:
+---
+
+# 🗄️ Database
+
+The application uses **PostgreSQL**.
+
+The database schema is managed entirely through **Liquibase**:
 
 ```text
-src/main/resources/db/changelog
+src/main/resources/db/changelog/
 ```
 
 ### 👤 `customers`
 
-| Column         | Description                        |
-| -------------- | ---------------------------------- |
-| `id`           | UUID primary key                   |
-| `name`         | Customer name                      |
-| `phone`        | Customer phone number              |
-| `status`       | Current queue status               |
-| `created_at`   | Time the customer joined the queue |
-| `updated_at`   | Last update time                   |
-| `called_at`    | Time the customer was called       |
-| `completed_at` | Time service was completed         |
+| Column         | Description                  |
+| -------------- | ---------------------------- |
+| `id`           | UUID primary key             |
+| `name`         | Customer name                |
+| `phone`        | Customer phone number        |
+| `status`       | Current queue status         |
+| `created_at`   | Time the customer joined     |
+| `updated_at`   | Last update time             |
+| `called_at`    | Time the customer was called |
+| `completed_at` | Time service was completed   |
 
 ### 👨‍💼 `admins`
 
@@ -56,16 +74,9 @@ src/main/resources/db/changelog
 | `created_at` | Creation time          |
 | `updated_at` | Last update time       |
 
-A default admin is seeded automatically on first startup if the `admins` table is empty.
+An admin account is automatically seeded when the application starts if the `admins` table is empty.
 
-Default credentials:
-
-```text
-Username: admin
-Password: admin123
-```
-
-They can be overridden using:
+The username and password are configured through environment variables:
 
 ```text
 ADMIN_USERNAME
@@ -74,11 +85,78 @@ ADMIN_PASSWORD
 
 ---
 
-## 🚀 How to Run
+# 🚀 How to Run
 
-### 🐳 With Docker — Recommended
+## 🐳 Run with Docker Compose
 
-Build and start the application together with PostgreSQL:
+The easiest way to run the complete application is with Docker Compose.
+
+Docker Compose starts:
+
+```text
+Spring Boot application
+        +
+PostgreSQL database
+```
+
+---
+
+## 1️⃣ Create your local `.env` file
+
+Create a new file named:
+
+```text
+.env
+```
+
+in the **project root**, next to `docker-compose.yml`.
+
+Do not commit this file to Git.
+
+Example:
+
+```env
+POSTGRES_DB=smart_queue
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_PORT=5432
+
+APP_PORT=8080
+
+JWT_SECRET=change-this-to-a-long-random-secret-key
+JWT_EXPIRATION_MS=3600000
+
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+
+RATE_LIMIT_CAPACITY=30
+RATE_LIMIT_REFILL=30
+RATE_LIMIT_DURATION=60
+```
+
+### 🔐 Important
+
+The `JWT_SECRET` is required by the application to create and validate JWT tokens.
+
+For local development, create your own secret:
+
+```env
+JWT_SECRET=your-own-long-random-secret
+```
+
+Do **not** use the example secret in a real environment.
+
+The `.env` file should remain local and should be added to `.gitignore`:
+
+```gitignore
+.env
+```
+
+---
+
+## 2️⃣ Start the application
+
+From the project root:
 
 ```bash
 docker compose up --build
@@ -90,7 +168,16 @@ Or run it in detached mode:
 docker compose up -d --build
 ```
 
-The API will be available at:
+Docker will:
+
+1. 🐘 Start PostgreSQL
+2. ❤️ Wait until PostgreSQL is healthy
+3. 🏗️ Build the Spring Boot application
+4. 🚀 Start the application
+5. 🧬 Run Liquibase migrations
+6. 👨‍💼 Seed the admin account if necessary
+
+The API will then be available at:
 
 ```text
 http://localhost:8080
@@ -102,132 +189,269 @@ Swagger UI:
 http://localhost:8080/swagger-ui.html
 ```
 
-Check running containers:
+---
+
+## 3️⃣ Check the containers
 
 ```bash
 docker compose ps
 ```
 
-View application logs:
+You should see:
+
+```text
+smart-queue-db
+smart-queue-app
+```
+
+To view application logs:
 
 ```bash
 docker compose logs -f app
 ```
 
-Stop the application:
+To stop the application:
 
 ```bash
 docker compose down
 ```
 
----
+The PostgreSQL data remains in the Docker volume.
 
-### 💻 Locally
-
-1. Start PostgreSQL, or start only the database using Docker:
+To remove the containers **and database volume**:
 
 ```bash
-docker compose up db
+docker compose down -v
 ```
 
-2. Set the required environment variables, or use the defaults configured in `application.yml`:
-
-```text
-DB_URL
-DB_USERNAME
-DB_PASSWORD
-```
-
-3. Run the application:
-
-```bash
-mvn spring-boot:run
-```
+> ⚠️ `docker compose down -v` deletes the PostgreSQL Docker volume and therefore removes the stored database data.
 
 ---
 
-## 🧪 Tests
+# 🔐 Admin Login Flow
 
-Run the complete test suite with:
+Administrative operations are protected using **Spring Security + JWT**.
 
-```bash
-mvn test
+Before logging in, you must create your own local `.env` file as described above.
+
+The important variables for authentication are:
+
+```env
+JWT_SECRET=your-own-secret
+JWT_EXPIRATION_MS=3600000
+
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
 ```
 
-The project uses:
-
-* JUnit 5
-* Mockito
-* MockMvc
-* Spring Security Test
+These values are passed from Docker Compose to the Spring Boot application.
 
 ---
 
-## 🔐 Authentication
+## 1️⃣ Configure Admin Credentials
 
-The application uses **JWT-based authentication** for administrator operations.
+In your local `.env`:
 
-### 🔑 Login
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+```
 
-Send a request to:
+You can use different credentials:
+
+```env
+ADMIN_USERNAME=myadmin
+ADMIN_PASSWORD=my-secure-password
+```
+
+The admin account is seeded automatically when the application starts if the `admins` table is empty.
+
+The password is stored in the database as a **BCrypt hash**, not as plain text.
+
+---
+
+## 2️⃣ Configure the JWT Secret
+
+In the same `.env` file, provide a secret used for signing JWT tokens:
+
+```env
+JWT_SECRET=your-own-long-random-secret
+```
+
+The application uses this secret to:
+
+* 🔏 Sign JWT tokens during login
+* 🔍 Validate JWT tokens on protected requests
+
+The secret should be sufficiently long and unpredictable.
+
+---
+
+## 3️⃣ Start the Application
+
+After creating `.env`:
+
+```bash
+docker compose up --build
+```
+
+The environment variables from `.env` are passed to the `app` container.
+
+The application can then authenticate the configured admin.
+
+---
+
+## 4️⃣ Login
+
+Send:
 
 ```http
 POST /api/auth/login
+Content-Type: application/json
 ```
 
-with the admin credentials.
+with the credentials configured in `.env`.
 
-The response contains a JWT token.
+For the example configuration:
 
-Use the token in subsequent admin requests:
+```json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+If the credentials are valid, the API returns a JWT access token.
+
+Example:
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiJ9..."
+  },
+  "timestamp": "..."
+}
+```
+
+---
+
+## 5️⃣ Use the JWT Token
+
+Copy the returned token and include it in the `Authorization` header when calling protected endpoints:
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer <JWT_TOKEN>
 ```
 
-### 🌐 Public Endpoints
+For example:
 
-The following operations do not require authentication:
-
-* Join the queue
-* View waiting customers
-* View a customer
-* Check customer position
-
-### 🔒 Admin-only Endpoints
-
-The following operations require authentication:
-
-* Call next customer
-* Remove customer
-* Complete customer service
-* Cancel customer
-* View statistics
-* View queue history
+```http
+POST /api/queue/next
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+```
 
 ---
 
-## 📡 API Endpoints
+## 6️⃣ Admin Request Flow
 
-| Method       | Endpoint                     | Auth     | Description                            |
-| ------------ | ---------------------------- | -------- | -------------------------------------- |
-| 🔑 `POST`    | `/api/auth/login`            | —        | Admin login and JWT generation         |
-| ➕ `POST`     | `/api/queue`                 | —        | Add a new customer to the queue        |
-| 📋 `GET`     | `/api/queue`                 | —        | List all waiting customers in order    |
-| 👤 `GET`     | `/api/queue/{id}`            | —        | Get a customer and current position    |
-| 📍 `GET`     | `/api/queue/{id}/position`   | —        | Get only the customer's position       |
-| 📣 `POST`    | `/api/queue/next`            | 🔒 Admin | Call the next waiting customer         |
-| ✅ `POST`     | `/api/queue/{id}/complete`   | 🔒 Admin | Mark a served customer as completed    |
-| ❌ `POST`     | `/api/queue/{id}/cancel`     | 🔒 Admin | Cancel a customer's place in the queue |
-| 🗑️ `DELETE` | `/api/queue/{id}`            | 🔒 Admin | Remove a customer completely           |
-| 📊 `GET`     | `/api/queue/stats`           | 🔒 Admin | Get live queue statistics              |
-| 🕘 `GET`     | `/api/queue/history?status=` | 🔒 Admin | Get paginated queue history            |
+The complete authentication flow is:
+
+```text
+┌──────────────────┐
+│  Create .env     │
+│                  │
+│ ADMIN_USERNAME   │
+│ ADMIN_PASSWORD   │
+│ JWT_SECRET       │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Docker Compose   │
+└────────┬─────────┘
+         │
+         ▼
+┌────────────────────────┐
+│    Spring Boot App     │
+└────────────┬───────────┘
+             │
+             │ Admin login
+             ▼
+┌────────────────────────┐
+│   POST /api/auth/login │
+└────────────┬───────────┘
+             │
+             │ Validate credentials
+             ▼
+┌────────────────────────┐
+│      PostgreSQL        │
+│        admins          │
+└────────────┬───────────┘
+             │
+             │ Valid
+             ▼
+┌────────────────────────┐
+│       JWT Token        │
+└────────────┬───────────┘
+             │
+             │ Bearer token
+             ▼
+┌────────────────────────┐
+│ Protected API Endpoint │
+│    /api/queue/next     │
+└────────────┬───────────┘
+             │
+             ▼
+          ✅ Allowed
+```
+
+Without a valid JWT:
+
+```text
+401 Unauthorized
+```
+
+With a valid JWT but insufficient permissions:
+
+```text
+403 Forbidden
+```
 
 ---
 
-## 📦 Response Format
+# 📡 API Endpoints
 
-All successful responses use a consistent response envelope:
+## 🔑 Authentication
+
+| Method | Endpoint          | Auth      | Description                        |
+| ------ | ----------------- | --------- | ---------------------------------- |
+| `POST` | `/api/auth/login` | 🌐 Public | Authenticate admin and receive JWT |
+
+---
+
+## 👥 Queue
+
+| Method   | Endpoint                     | Auth      | Description                       |
+| -------- | ---------------------------- | --------- | --------------------------------- |
+| `POST`   | `/api/queue`                 | 🌐 Public | Add a new customer                |
+| `GET`    | `/api/queue`                 | 🌐 Public | List waiting customers            |
+| `GET`    | `/api/queue/{id}`            | 🌐 Public | Get customer and current position |
+| `GET`    | `/api/queue/{id}/position`   | 🌐 Public | Get customer's position           |
+| `POST`   | `/api/queue/next`            | 🔒 Admin  | Call the next waiting customer    |
+| `POST`   | `/api/queue/{id}/complete`   | 🔒 Admin  | Complete a customer's service     |
+| `POST`   | `/api/queue/{id}/cancel`     | 🔒 Admin  | Cancel a customer                 |
+| `DELETE` | `/api/queue/{id}`            | 🔒 Admin  | Remove a customer                 |
+| `GET`    | `/api/queue/stats`           | 🔒 Admin  | View queue statistics             |
+| `GET`    | `/api/queue/history?status=` | 🔒 Admin  | View paginated queue history      |
+
+---
+
+# 📦 Response Format
+
+Successful responses use a consistent response envelope:
 
 ```json
 {
@@ -242,7 +466,7 @@ All successful responses use a consistent response envelope:
 
 ### ❗ Error Response
 
-Errors use a consistent structure as well:
+Errors follow a consistent structure:
 
 ```json
 {
@@ -256,65 +480,68 @@ Errors use a consistent structure as well:
 
 ---
 
-## 🚦 Rate Limiting
+# 🚦 Rate Limiting
 
-Every `/api/**` request is rate-limited by **client IP address** using an in-memory **Bucket4j token bucket**.
+All `/api/**` requests are protected by an IP-based rate limiter using **Bucket4j**.
 
-### ⚙️ Default Configuration
-
-```text
-30 requests / minute
-```
-
-The following environment variables can be used to configure the limit:
+The default configuration allows:
 
 ```text
-RATE_LIMIT_CAPACITY
-RATE_LIMIT_REFILL
-RATE_LIMIT_DURATION
+30 requests / minute / client IP
 ```
 
-When the limit is exceeded, the API returns:
+The following environment variables control the rate limiter:
+
+```env
+RATE_LIMIT_CAPACITY=30
+RATE_LIMIT_REFILL=30
+RATE_LIMIT_DURATION=60
+```
+
+When the configured limit is exceeded:
 
 ```http
 429 Too Many Requests
 ```
 
+The current implementation uses an **in-memory token bucket**, so the rate limiter is intended for a single application instance.
+
 ---
 
-## 🔒 Concurrency: Preventing Duplicate `/next` Calls
+# 🔒 Concurrency: Preventing Duplicate `/next` Calls
 
-One of the core design questions of the task is handling two simultaneous requests to:
+One of the main design considerations of this task is handling simultaneous requests to:
 
 ```http
 POST /api/queue/next
 ```
 
-### ⚠️ The Problem
+## ⚠️ The Problem
 
-Imagine two staff members call `/next` at almost exactly the same time.
+Suppose two staff members call `/next` at almost exactly the same time.
 
-Without proper concurrency control:
+Without concurrency control:
 
 ```text
-Request A ──> Find next WAITING customer ──> Customer X
-Request B ──> Find next WAITING customer ──> Customer X
+Request A ──┐
+            ├──> Customer X
+Request B ──┘
 ```
 
-Both requests could read the same customer before either request updates the status.
+Both requests could read the same waiting customer before either request changes its status.
 
-The result:
+This could result in:
 
 ```text
 ❌ Customer X is called twice
-❌ The next customer remains waiting
+❌ Customer Y remains waiting
 ```
 
 ---
 
-## 🔐 Solution: Pessimistic Database Locking
+## 🔐 Solution: Pessimistic Row-Level Locking
 
-The application uses a **pessimistic row-level lock** inside a single database transaction.
+The application uses a **pessimistic database lock** inside a single transaction.
 
 The repository uses:
 
@@ -329,7 +556,7 @@ The repository uses:
 List<CustomerEntity> lockNextWaiting(QueueStatus status);
 ```
 
-With PostgreSQL, this results in row-level locking similar to:
+With PostgreSQL, this provides row-level locking equivalent to:
 
 ```sql
 SELECT ...
@@ -339,29 +566,27 @@ ORDER BY created_at ASC
 FOR UPDATE;
 ```
 
-### 🔄 How It Works
+---
 
-#### 1️⃣ Transaction A
+## 🔄 How It Works
 
-Request A calls `/next`.
+### 1️⃣ Request A
 
-The database locks the first `WAITING` customer.
+Transaction A selects the first waiting customer:
 
 ```text
 Customer X → 🔒 LOCKED
 ```
 
-#### 2️⃣ Transaction B
+### 2️⃣ Request B
 
-Request B arrives at the same time.
-
-It attempts to acquire the same lock:
+Transaction B arrives at the same time:
 
 ```text
 Customer X → ⏳ WAITING FOR LOCK
 ```
 
-#### 3️⃣ Transaction A Updates the Customer
+### 3️⃣ Request A Updates the Customer
 
 Transaction A changes:
 
@@ -371,66 +596,41 @@ WAITING → SERVING
 
 and commits.
 
-```text
-Customer X → SERVING
-```
+### 4️⃣ Request B Continues
 
-#### 4️⃣ Transaction B Continues
+Transaction B continues and sees that Customer X is no longer waiting.
 
-Transaction B can now proceed.
-
-Because Customer X is no longer `WAITING`, it selects the next customer:
+It therefore selects the next customer:
 
 ```text
-Customer Y → WAITING
+Customer Y → SERVING
 ```
 
-and changes:
+The result is:
 
 ```text
-WAITING → SERVING
+Request A → Customer X
+Request B → Customer Y
 ```
 
-### ✅ Result
-
-The database effectively serializes concurrent `/next` operations:
-
-```text
-Request A ──> Customer X ──> SERVING
-                         ↓
-                      COMMIT
-                         ↓
-Request B ──> Customer Y ──> SERVING
-```
-
-Therefore:
-
-> **The same customer cannot be successfully called twice by concurrent `/next` requests.**
-
-If there are no waiting customers, the service returns:
-
-```http
-409 Conflict
-```
+instead of both requests receiving Customer X.
 
 ---
 
-## ⚖️ Why Pessimistic Locking?
+## ✅ Why Pessimistic Locking?
 
-### 🟢 Pessimistic Locking
-
-Chosen because:
+Pessimistic locking was selected because:
 
 * PostgreSQL already provides row-level locking
-* The critical operation is very short
-* The queue is small
-* The operation needs deterministic ordering
+* The critical operation is short
+* The queue is relatively small
+* Queue ordering remains deterministic
 * No additional infrastructure is required
-* Works correctly even when multiple application threads access the database concurrently
+* PostgreSQL remains the source of truth
 
 ---
 
-### 🟡 `SKIP LOCKED`
+## 🔄 Alternative: `SKIP LOCKED`
 
 PostgreSQL also supports:
 
@@ -438,93 +638,127 @@ PostgreSQL also supports:
 FOR UPDATE SKIP LOCKED
 ```
 
-This can provide higher throughput under heavy concurrency because a transaction doesn't wait for a locked row. Instead, it skips it and processes another available row.
+This can improve throughput under heavy concurrency because requests do not wait for locked rows.
 
-For this application, however, regular pessimistic locking is sufficient because `/next` is a sequential queue operation and briefly waiting for the lock preserves deterministic behavior.
-
----
-
-### 🟠 Optimistic Locking
-
-Optimistic locking with JPA `@Version` was also considered.
-
-However, it would require handling concurrent update failures and potentially retrying the operation.
-
-For this small queue, that adds complexity without providing a meaningful benefit over a short database lock.
+For this task, regular pessimistic locking is sufficient because `/next` represents a sequential queue operation where briefly waiting for the previous transaction is acceptable.
 
 ---
 
-### 🔴 Redis Distributed Lock
+## 🟡 Optimistic Locking
 
-A Redis-based distributed lock could be useful in a more complex distributed architecture.
+JPA's `@Version` was also considered.
 
-However, for this application:
+However, optimistic locking would require handling concurrent update failures and potentially retrying the operation.
+
+For this relatively small queue, pessimistic locking provides a simpler solution.
+
+---
+
+## 🔴 Redis Distributed Lock
+
+A Redis distributed lock could be useful in a larger distributed deployment.
+
+However, the queue is stored in PostgreSQL, and PostgreSQL already provides the required locking mechanism.
+
+Introducing Redis only for this operation would add unnecessary infrastructure for the current project.
+
+---
+
+# 🏗️ Architecture
+
+The application follows a simple layered architecture:
 
 ```text
-Application
-     ↓
-PostgreSQL
+┌─────────────────────────────┐
+│       REST Controller       │
+│      HTTP / Validation      │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│           Service           │
+│       Business Logic        │
+│       Transactions          │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│         Repository          │
+│        Spring Data JPA      │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│          PostgreSQL         │
+└─────────────────────────────┘
 ```
 
-the database is already the source of truth for the queue.
-
-Therefore, a PostgreSQL row-level lock is simpler and avoids introducing another infrastructure dependency.
-
----
-
-## 🏗️ Architecture
-
-The application follows a layered architecture:
+Additional components:
 
 ```text
-┌──────────────────────────┐
-│       REST Controller    │
-└────────────┬─────────────┘
-             ↓
-┌──────────────────────────┐
-│          Service         │
-│   Business Logic / TX    │
-└────────────┬─────────────┘
-             ↓
-┌──────────────────────────┐
-│        Repository        │
-│       Spring Data JPA    │
-└────────────┬─────────────┘
-             ↓
-┌──────────────────────────┐
-│        PostgreSQL        │
-└──────────────────────────┘
-```
+Spring Security
+      ↓
+JWT Authentication
+      ↓
+Protected Admin Endpoints
 
-Database schema changes are managed separately through:
-
-```text
 Liquibase
-   ↓
-PostgreSQL
+      ↓
+Database Schema Migrations
+
+Bucket4j
+      ↓
+API Rate Limiting
+
+MapStruct
+      ↓
+Entity ↔ DTO Mapping
 ```
 
 ---
 
-## 📚 API Documentation
+# 📖 API Documentation
 
-Interactive API documentation is available through **Swagger UI**:
+Interactive API documentation is available through Swagger UI:
 
 ```text
 http://localhost:8080/swagger-ui.html
 ```
 
-Swagger can be used to:
+Swagger allows you to:
 
 * 📖 Explore available endpoints
 * 🧪 Send API requests
 * 🔐 Authorize using a JWT
-* 📦 Inspect request/response schemas
-* ❗ Test error responses
+* 📦 Inspect request and response models
+* ❗ Test API behavior
+
+### 🔐 Using JWT in Swagger
+
+1. Create your local `.env` file.
+2. Configure `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `JWT_SECRET`.
+3. Start the application.
+4. Open Swagger UI.
+5. Call:
+
+```text
+POST /api/auth/login
+```
+
+6. Copy the JWT returned by the login endpoint.
+7. Click **Authorize** in Swagger.
+8. Enter:
+
+```text
+Bearer <your-jwt-token>
+```
+
+9. Click **Authorize**.
+10. You can now test the admin-only endpoints.
 
 ---
 
-## 📁 Project Structure
+# 📁 Project Structure
 
 ```text
 src/
@@ -544,29 +778,35 @@ src/
 │   └── resources/
 │       ├── db/
 │       │   └── changelog/
-│       └── application.yml/
+│       └── application.yml
 │
-└── test/
-    └── java/
+├── Dockerfile
+├── docker-compose.yml
+├── pom.xml
+├── .env
+└── .gitignore
 ```
+
+> `.env` is a local configuration file and should not be committed to the repository.
 
 ---
 
-## 🎯 Project Goals
+# 🎯 Project Goals
 
-The project focuses on demonstrating:
+This project demonstrates practical backend development concepts including:
 
-* ☕ Java and Spring Boot fundamentals
+* ☕ Java and Spring Boot
 * 🌐 REST API design
-* 🗄️ Relational database usage
-* 🔄 Transaction management
-* 🔐 Authentication and authorization
+* 🗄️ PostgreSQL and JPA
+* 🧬 Liquibase database migrations
+* 🔐 JWT authentication
+* 🛡️ Spring Security authorization
 * 🔒 Database-level concurrency control
-* 🧪 Automated testing
-* 🧬 Database migration management
-* 🐳 Containerized development
-* 📖 API documentation
-* ⚡ Basic API protection through rate limiting
+* 🚦 API rate limiting
+* 🔄 Transaction management
+* 🔁 DTO mapping with MapStruct
+* 📖 OpenAPI / Swagger documentation
+* 🐳 Dockerized application deployment
 
 ---
 
