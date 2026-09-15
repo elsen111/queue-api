@@ -6,15 +6,15 @@ services:
     container_name: smart-queue-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: smart_queue
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - smart_queue_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -28,14 +28,18 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://db:5432/smart_queue
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: c2VjcmV0LWtleS1mb3Itc21hcnQtcXVldWUtYXBpLWNoYW5nZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin123
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-3600000}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      RATE_LIMIT_CAPACITY: ${RATE_LIMIT_CAPACITY:-30}
+      RATE_LIMIT_REFILL: ${RATE_LIMIT_REFILL:-30}
+      RATE_LIMIT_DURATION: ${RATE_LIMIT_DURATION:-60}
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
 
 volumes:
   smart_queue_pgdata:

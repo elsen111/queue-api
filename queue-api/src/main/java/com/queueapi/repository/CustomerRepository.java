@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public interface CustomerRepository extends JpaRepository<CustomerEntity, UUID> {
 
-    List<CustomerEntity> findAllByStatusOrderByCreatedAtAsc(QueueStatus status);
+    Page<CustomerEntity> findAllByStatusOrderByCreatedAtAsc(QueueStatus status, Pageable pageable);
 
     Page<CustomerEntity> findAllByStatus(QueueStatus status, Pageable pageable);
 

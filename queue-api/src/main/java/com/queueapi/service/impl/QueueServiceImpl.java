@@ -5,6 +5,7 @@ import com.queueapi.dto.response.CustomerResponse;
 import com.queueapi.dto.response.QueueStatsResponse;
 import com.queueapi.entity.CustomerEntity;
 import com.queueapi.enums.QueueStatus;
+import com.queueapi.exception.BadRequestException;
 import com.queueapi.exception.ConflictException;
 import com.queueapi.exception.ResourceNotFoundException;
 import com.queueapi.mapper.CustomerMapper;
@@ -13,12 +14,15 @@ import com.queueapi.service.QueueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,18 +43,30 @@ public class QueueServiceImpl implements QueueService {
         return withPosition(saved);
     }
 
+    private static final Set<String> SORTABLE_PROPERTIES =
+            Set.of("name", "phone", "status", "createdAt", "updatedAt", "calledAt", "completedAt");
+
     @Override
     @Transactional(readOnly = true)
-    public List<CustomerResponse> getWaitingCustomers() {
-        List<CustomerEntity> waiting = customerRepository.findAllByStatusOrderByCreatedAtAsc(QueueStatus.WAITING);
-        List<CustomerResponse> responses = new java.util.ArrayList<>();
-        long position = 1;
-        for (CustomerEntity c : waiting) {
-            CustomerResponse r = customerMapper.toResponse(c);
-            r.setPosition(position++);
-            responses.add(r);
+    public Page<CustomerResponse> getWaitingCustomers(Pageable pageable) {
+        Page<CustomerEntity> page = customerRepository.findAllByStatusOrderByCreatedAtAsc(
+                QueueStatus.WAITING, sanitizeSort(pageable));
+        return page.map(this::withPosition);
+    }
+
+    private Pageable sanitizeSort(Pageable pageable) {
+        if (pageable.getSort().isUnsorted()) {
+            return pageable;
         }
-        return responses;
+        List<String> invalid = pageable.getSort().stream()
+                .map(Sort.Order::getProperty)
+                .filter(property -> !SORTABLE_PROPERTIES.contains(property))
+                .collect(Collectors.toList());
+        if (!invalid.isEmpty()) {
+            throw new BadRequestException(
+                    "Cannot sort by: " + invalid + ". Allowed sort properties: " + SORTABLE_PROPERTIES);
+        }
+        return pageable;
     }
 
     @Override
@@ -122,7 +138,7 @@ public class QueueServiceImpl implements QueueService {
     @Override
     @Transactional(readOnly = true)
     public Page<CustomerResponse> getByStatus(QueueStatus status, Pageable pageable) {
-        return customerRepository.findAllByStatus(status, pageable).map(customerMapper::toResponse);
+        return customerRepository.findAllByStatus(status, sanitizeSort(pageable)).map(customerMapper::toResponse);
     }
 
     private CustomerEntity findOrThrow(UUID id) {

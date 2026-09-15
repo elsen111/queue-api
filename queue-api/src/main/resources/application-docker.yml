@@ -6,7 +6,7 @@ spring:
     name: smart-queue-api
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/smart_queue}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/smart_queue_db}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver

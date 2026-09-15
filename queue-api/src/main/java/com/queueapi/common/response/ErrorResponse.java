@@ -1,4 +1,4 @@
-package com.nvprojectlab.smartqueue.common.response;
+package com.queueapi.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
