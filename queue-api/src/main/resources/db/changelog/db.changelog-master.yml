@@ -1,6 +1,6 @@
 databaseChangeLog:
   - include:
-      file: db/changelog/changes/001-create-customers-table.yaml
+      file: db/changelog/changes/001-create-customers-table.yml
 
   - include:
-      file: db/changelog/changes/002-create-admins-table.yaml
+      file: db/changelog/changes/002-create-admins-table.yml

@@ -1,51 +1,41 @@
+version: "3.9"
+
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: queue-api-postgres
+    container_name: smart-queue-db
     restart: unless-stopped
-
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
+      POSTGRES_DB: smart_queue
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "${POSTGRES_PORT}:5432"
-
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
+      - smart_queue_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 10s
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-
-    container_name: queue-api
+    build: .
+    container_name: smart-queue-app
     restart: unless-stopped
-
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-
     environment:
       SPRING_PROFILES_ACTIVE: docker
-
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-
+      DB_URL: jdbc:postgresql://db:5432/smart_queue
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: c2VjcmV0LWtleS1mb3Itc21hcnQtcXVldWUtYXBpLWNoYW5nZS1pbi1wcm9kdWN0aW9uLTEyMzQ1Ng==
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
     ports:
-      - "${APP_PORT}:8080"
+      - "8080:8080"
 
 volumes:
-  postgres_data:
-    name: queue-api-postgres-data
+  smart_queue_pgdata:

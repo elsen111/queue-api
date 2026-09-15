@@ -1,23 +1,23 @@
-# --- Build stage ---
-FROM eclipse-temurin:17-jdk-jammy AS build
+# ---- Build stage ----
+FROM gradle:8.9-jdk17 AS build
 WORKDIR /app
 
-COPY gradlew .
-COPY gradle gradle
+# Copy Gradle wrapper/config first for better layer caching
 COPY build.gradle settings.gradle ./
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon || true
+COPY gradle ./gradle
+COPY gradlew ./
+RUN chmod +x gradlew
 
-COPY src src
-RUN ./gradlew bootJar --no-daemon -x test
+# Pre-fetch dependencies (cached layer if build files don't change)
+RUN ./gradlew dependencies --no-daemon || true
 
-# --- Run stage ---
-FROM eclipse-temurin:17-jre-jammy
+# Now copy source and build
+COPY src ./src
+RUN ./gradlew clean bootJar -x test --no-daemon
+
+# ---- Run stage ----
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-
-RUN addgroup --system fleettrack && adduser --system --ingroup fleettrack fleettrack
 COPY --from=build /app/build/libs/*.jar app.jar
-RUN chown fleettrack:fleettrack app.jar
-USER fleettrack
-
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
